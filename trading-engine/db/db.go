@@ -66,7 +66,7 @@ func (s *Store) InsertTrade(ctx context.Context, t *models.Trade) (int, error) {
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO trades (coin, signal_type, side, account_type, quantity, entry_price, leverage, commission, is_active, binance_order_id)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-		t.Coin, t.SignalType, t.Side, t.AccountType, t.Quantity, t.EntryPrice, t.Leverage, t.Commission, true, t.BinanceOrderID,
+		t.Coin, t.SignalType, t.Side, t.AccountType, t.Quantity, t.EntryPrice, t.Leverage, t.Commission, t.IsActive, t.BinanceOrderID,
 	).Scan(&id)
 	return id, err
 }

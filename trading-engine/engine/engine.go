@@ -22,17 +22,17 @@ type Engine struct {
 }
 
 type TradeResult struct {
-	Success        bool   `json:"success"`
-	Signal         string `json:"signal"`
-	Coin           string `json:"coin"`
-	Side           string `json:"side"`
-	Quantity       string `json:"quantity"`
-	Price          string `json:"price"`
-	ClosedTrade    string `json:"closed_trade,omitempty"`
-	NetPnL         string `json:"net_pnl,omitempty"`
-	Error          string `json:"error,omitempty"`
-	RetryAttempt   int    `json:"retry_attempt"`
-	RequestID      string `json:"request_id"`
+	Success      bool   `json:"success"`
+	Signal       string `json:"signal"`
+	Coin         string `json:"coin"`
+	Side         string `json:"side"`
+	Quantity     string `json:"quantity"`
+	Price        string `json:"price"`
+	ClosedTrade  string `json:"closed_trade,omitempty"`
+	NetPnL       string `json:"net_pnl,omitempty"`
+	Error        string `json:"error,omitempty"`
+	RetryAttempt int    `json:"retry_attempt"`
+	RequestID    string `json:"request_id"`
 }
 
 func New(store *db.Store, alClient, satClient *binance.Client) *Engine {
@@ -155,6 +155,7 @@ func (e *Engine) ProcessSignal(ctx context.Context, msg models.QueueMessage, att
 			EntryPrice:  exitPrice,
 			Leverage:    cfg.Leverage,
 			Commission:  closeComm,
+			IsActive:    false,
 		}
 		if closeOrder != nil {
 			oid := closeOrder.OrderID
@@ -227,6 +228,7 @@ func (e *Engine) ProcessSignal(ctx context.Context, msg models.QueueMessage, att
 		EntryPrice:  entryPrice,
 		Leverage:    cfg.Leverage,
 		Commission:  openComm,
+		IsActive:    true,
 	}
 	if openOrder != nil {
 		oid := openOrder.OrderID
