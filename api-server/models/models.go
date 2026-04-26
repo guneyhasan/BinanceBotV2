@@ -167,6 +167,23 @@ type PnL24hChartPoint struct {
 	SATCumulativeRealizedPnL float64 `json:"sat_cumulative_realized_pnl"`
 }
 
+type AccountBalance struct {
+	AccountType        string  `json:"account_type"`
+	Label              string  `json:"label"`
+	Asset              string  `json:"asset"`
+	WalletBalance      float64 `json:"wallet_balance"`
+	AvailableBalance   float64 `json:"available_balance"`
+	CrossWalletBalance float64 `json:"cross_wallet_balance"`
+	UnrealizedPnL      float64 `json:"unrealized_pnl"`
+	Error              string  `json:"error,omitempty"`
+}
+
+type BalanceChartPoint struct {
+	Time       string  `json:"time"`
+	ALBalance  float64 `json:"al_balance"`
+	SATBalance float64 `json:"sat_balance"`
+}
+
 type PnL24hResponse struct {
 	From                  string                 `json:"from"`
 	To                    string                 `json:"to"`
@@ -174,6 +191,8 @@ type PnL24hResponse struct {
 	Accounts              []PnL24hAccountSummary `json:"accounts"`
 	Coins                 []PnL24hCoinSummary    `json:"coins"`
 	Chart                 []PnL24hChartPoint     `json:"chart"`
+	Balances              []AccountBalance       `json:"balances"`
+	BalanceChart          []BalanceChartPoint    `json:"balance_chart"`
 	TotalRealizedGross    float64                `json:"total_realized_gross_pnl"`
 	TotalRealizedComm     float64                `json:"total_realized_commission"`
 	TotalRealizedNetPnL   float64                `json:"total_realized_net_pnl"`

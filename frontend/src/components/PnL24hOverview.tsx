@@ -157,6 +157,71 @@ function PnLChart({
   );
 }
 
+function AccountBalanceChart({
+  title,
+  colorClass,
+  data,
+  valueKey,
+}: {
+  title: string;
+  colorClass: string;
+  data: PnL24hResponse['balance_chart'];
+  valueKey: 'al_balance' | 'sat_balance';
+}) {
+  const path = useMemo(() => {
+    if (data.length === 0) return { points: '', latest: 0 };
+
+    const values = data.map(point => point[valueKey]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+    const width = 320;
+    const height = 100;
+    const pad = 12;
+
+    return {
+      latest: values[values.length - 1] ?? 0,
+      points: values.map((value, index) => {
+        const x = data.length === 1 ? width / 2 : pad + (index / (data.length - 1)) * (width - pad * 2);
+        const y = height - pad - ((value - min) / range) * (height - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' '),
+    };
+  }, [data, valueKey]);
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-950/60 p-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-200">{title}</h3>
+          <p className="text-xs text-gray-500">Son 24 saat tahmini wallet balance</p>
+        </div>
+        <div className="text-right text-xs text-gray-500">
+          <p>Guncel</p>
+          <span className="font-mono font-medium text-gray-200">{formatUsd(path.latest)}</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 320 100" className="h-32 w-full overflow-visible">
+        <line x1="12" y1="88" x2="308" y2="88" className="stroke-gray-800" strokeWidth="1" />
+        {path.points ? (
+          <polyline
+            fill="none"
+            points={path.points}
+            className={colorClass}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <text x="160" y="54" textAnchor="middle" className="fill-gray-500 text-xs">
+            Bakiye verisi yok
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
 export default function PnL24hOverview({ compact = false }: PnL24hOverviewProps) {
   const [data, setData] = useState<PnL24hResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -193,6 +258,8 @@ export default function PnL24hOverview({ compact = false }: PnL24hOverviewProps)
 
   const alAccount = data?.accounts.find(account => account.account_type === 'AL_ACCOUNT');
   const satAccount = data?.accounts.find(account => account.account_type === 'SAT_ACCOUNT');
+  const alBalance = data?.balances.find(balance => balance.account_type === 'AL_ACCOUNT');
+  const satBalance = data?.balances.find(balance => balance.account_type === 'SAT_ACCOUNT');
   const visibleCoins = compact ? data?.coins.slice(0, 5) ?? [] : data?.coins ?? [];
 
   if (loading) {
@@ -241,6 +308,36 @@ export default function PnL24hOverview({ compact = false }: PnL24hOverviewProps)
           value={formatUsd(data.total_net_pnl)}
           subtitle={`Realized ${formatUsd(data.total_realized_net_pnl)} / Anlik ${formatUsd(data.total_unrealized_net_pnl)}`}
           color={pnlColor(data.total_net_pnl)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card
+          title="AL Hesabi Bakiye"
+          value={alBalance?.error ? 'Hata' : formatUsd(alBalance?.wallet_balance ?? 0)}
+          subtitle={alBalance?.error || `Kullanilabilir ${formatUsd(alBalance?.available_balance ?? 0)} / Anlik PnL ${formatUsd(alBalance?.unrealized_pnl ?? 0)}`}
+          color={alBalance?.error ? 'red' : 'green'}
+        />
+        <Card
+          title="SAT Hesabi Bakiye"
+          value={satBalance?.error ? 'Hata' : formatUsd(satBalance?.wallet_balance ?? 0)}
+          subtitle={satBalance?.error || `Kullanilabilir ${formatUsd(satBalance?.available_balance ?? 0)} / Anlik PnL ${formatUsd(satBalance?.unrealized_pnl ?? 0)}`}
+          color={satBalance?.error ? 'red' : 'red'}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <AccountBalanceChart
+          title="AL Hesabi Bakiye Grafigi"
+          colorClass="stroke-emerald-400"
+          data={data.balance_chart}
+          valueKey="al_balance"
+        />
+        <AccountBalanceChart
+          title="SAT Hesabi Bakiye Grafigi"
+          colorClass="stroke-red-400"
+          data={data.balance_chart}
+          valueKey="sat_balance"
         />
       </div>
 
