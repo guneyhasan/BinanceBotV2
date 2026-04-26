@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -12,11 +13,19 @@ import (
 )
 
 type Handler struct {
-	store *db.Store
+	store              *db.Store
+	telegramToken      string
+	telegramSignalChat string
+	telegramTradeChat  string
 }
 
 func New(store *db.Store) *Handler {
-	return &Handler{store: store}
+	return &Handler{
+		store:              store,
+		telegramToken:      os.Getenv("TELEGRAM_BOT_TOKEN"),
+		telegramSignalChat: os.Getenv("TELEGRAM_SIGNAL_CHAT_ID"),
+		telegramTradeChat:  os.Getenv("TELEGRAM_TRADE_CHAT_ID"),
+	}
 }
 
 func (h *Handler) Health(c *gin.Context) {

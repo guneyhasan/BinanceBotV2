@@ -74,6 +74,7 @@ func main() {
 		api.GET("/webhooks/:id", h.GetWebhookDetail)
 		api.GET("/system/health", h.GetSystemHealth)
 		api.GET("/system/stats", h.GetSystemStats)
+		api.POST("/telegram/test", h.TestTelegram)
 	}
 
 	srv := &http.Server{Addr: ":8081", Handler: r}

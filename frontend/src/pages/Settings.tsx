@@ -6,6 +6,7 @@ export default function Settings() {
   const [config, setConfig] = useState<Config | null>(null);
   const [form, setForm] = useState({ trade_amount_usd: '', leverage: '', margin_mode: '', commission_rate: '' });
   const [saving, setSaving] = useState(false);
+  const [telegramTesting, setTelegramTesting] = useState<'signal' | 'trade' | null>(null);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -37,6 +38,19 @@ export default function Settings() {
       setMessage('Hata: ' + (err as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const testTelegram = async (target: 'signal' | 'trade') => {
+    setTelegramTesting(target);
+    setMessage('');
+    try {
+      await api.testTelegram(target);
+      setMessage(target === 'signal' ? 'Telegram sinyal test mesaji gonderildi' : 'Telegram islem test mesaji gonderildi');
+    } catch (err) {
+      setMessage('Hata: ' + (err as Error).message);
+    } finally {
+      setTelegramTesting(null);
     }
   };
 
@@ -125,6 +139,31 @@ export default function Settings() {
           <div className="font-mono">{config.commission_rate} (%{(config.commission_rate * 100).toFixed(2)})</div>
           <div className="text-gray-500">Son Guncelleme:</div>
           <div className="text-xs text-gray-400">{config.updated_at}</div>
+        </div>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Telegram Testi</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Bot token ve chat ID ayarlarini kontrol etmek icin test bildirimi gonderin.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => testTelegram('signal')}
+            disabled={telegramTesting !== null}
+            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2.5 rounded transition-colors"
+          >
+            {telegramTesting === 'signal' ? 'Gonderiliyor...' : 'Sinyal Chat Testi'}
+          </button>
+          <button
+            onClick={() => testTelegram('trade')}
+            disabled={telegramTesting !== null}
+            className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-medium py-2.5 rounded transition-colors"
+          >
+            {telegramTesting === 'trade' ? 'Gonderiliyor...' : 'Islem Chat Testi'}
+          </button>
         </div>
       </div>
     </div>

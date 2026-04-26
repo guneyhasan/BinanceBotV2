@@ -46,4 +46,9 @@ export const api = {
   getWebhookDetail: (id: number) => fetchJSON<WebhookLog>(`/webhooks/${id}`),
 
   getSystemStats: () => fetchJSON<SystemStats>('/system/stats'),
+  testTelegram: (target: 'signal' | 'trade') =>
+    fetchJSON<{ status: string; target: string }>('/telegram/test', {
+      method: 'POST',
+      body: JSON.stringify({ target }),
+    }),
 };

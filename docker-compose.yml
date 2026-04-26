@@ -88,6 +88,9 @@ services:
       - "${API_PORT:-8081}:8081"
     environment:
       POSTGRES_DSN: postgres://${POSTGRES_USER:-tradingbot}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-tradingbot}?sslmode=disable
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_SIGNAL_CHAT_ID: ${TELEGRAM_SIGNAL_CHAT_ID}
+      TELEGRAM_TRADE_CHAT_ID: ${TELEGRAM_TRADE_CHAT_ID}
     depends_on:
       postgres:
         condition: service_healthy
