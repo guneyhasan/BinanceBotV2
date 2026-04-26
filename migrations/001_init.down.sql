@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS execution_logs;
+DROP TABLE IF EXISTS webhook_logs;
+DROP TABLE IF EXISTS pnl_records;
+DROP TABLE IF EXISTS trades;
+DROP TABLE IF EXISTS config;
+DROP TABLE IF EXISTS binance_accounts;

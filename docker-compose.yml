@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tradingbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_DB: ${POSTGRES_DB:-tradingbot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tradingbot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-tradingbot}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change_me_in_production}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  webhook-gateway:
+    build: ./webhook-gateway
+    restart: always
+    ports:
+      - "${WEBHOOK_PORT:-8080}:8080"
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-tradingbot}:${RABBITMQ_PASSWORD:-change_me_in_production}@rabbitmq:5672/
+      POSTGRES_DSN: postgres://${POSTGRES_USER:-tradingbot}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-tradingbot}?sslmode=disable
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  trading-engine:
+    build: ./trading-engine
+    restart: always
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-tradingbot}:${RABBITMQ_PASSWORD:-change_me_in_production}@rabbitmq:5672/
+      POSTGRES_DSN: postgres://${POSTGRES_USER:-tradingbot}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-tradingbot}?sslmode=disable
+      BINANCE_AL_API_KEY: ${BINANCE_AL_API_KEY}
+      BINANCE_AL_API_SECRET: ${BINANCE_AL_API_SECRET}
+      BINANCE_SAT_API_KEY: ${BINANCE_SAT_API_KEY}
+      BINANCE_SAT_API_SECRET: ${BINANCE_SAT_API_SECRET}
+      BINANCE_BASE_URL: ${BINANCE_BASE_URL:-https://testnet.binancefuture.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notification-worker:
+    build: ./notification-worker
+    restart: always
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-tradingbot}:${RABBITMQ_PASSWORD:-change_me_in_production}@rabbitmq:5672/
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_SIGNAL_CHAT_ID: ${TELEGRAM_SIGNAL_CHAT_ID}
+      TELEGRAM_TRADE_CHAT_ID: ${TELEGRAM_TRADE_CHAT_ID}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  api-server:
+    build: ./api-server
+    restart: always
+    ports:
+      - "${API_PORT:-8081}:8081"
+    environment:
+      POSTGRES_DSN: postgres://${POSTGRES_USER:-tradingbot}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-tradingbot}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-server
+
+volumes:
+  pgdata:
+  rmqdata:
