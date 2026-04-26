@@ -17,13 +17,13 @@ import (
 const maxRetries = 5
 
 type Consumer struct {
-	url    string
-	conn   *amqp.Connection
-	ch     *amqp.Channel
-	eng    *engine.Engine
-	done   chan struct{}
-	wg     sync.WaitGroup
-	mu     sync.Mutex
+	url  string
+	conn *amqp.Connection
+	ch   *amqp.Channel
+	eng  *engine.Engine
+	done chan struct{}
+	wg   sync.WaitGroup
+	mu   sync.Mutex
 }
 
 func New(url string, eng *engine.Engine) *Consumer {
@@ -53,8 +53,32 @@ func (c *Consumer) connect() error {
 		return fmt.Errorf("rabbitmq channel: %w", err)
 	}
 
+	if err := c.declareQueues(); err != nil {
+		return err
+	}
+
 	if err := c.ch.Qos(1, 0, false); err != nil {
 		return fmt.Errorf("qos: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Consumer) declareQueues() error {
+	if _, err := c.ch.QueueDeclare("trading_signals_dlq", true, false, false, false, nil); err != nil {
+		return fmt.Errorf("queue declare trading_signals_dlq: %w", err)
+	}
+
+	args := amqp.Table{
+		"x-dead-letter-exchange":    "",
+		"x-dead-letter-routing-key": "trading_signals_dlq",
+	}
+	if _, err := c.ch.QueueDeclare("trading_signals", true, false, false, false, args); err != nil {
+		return fmt.Errorf("queue declare trading_signals: %w", err)
+	}
+
+	if _, err := c.ch.QueueDeclare("telegram_trades", true, false, false, false, nil); err != nil {
+		return fmt.Errorf("queue declare telegram_trades: %w", err)
 	}
 
 	return nil

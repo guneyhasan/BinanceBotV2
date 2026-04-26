@@ -13,14 +13,14 @@ import (
 )
 
 type Consumer struct {
-	url            string
-	conn           *amqp.Connection
-	ch             *amqp.Channel
-	tg             *telegram.Client
-	signalChatID   string
-	tradeChatID    string
-	done           chan struct{}
-	wg             sync.WaitGroup
+	url          string
+	conn         *amqp.Connection
+	ch           *amqp.Channel
+	tg           *telegram.Client
+	signalChatID string
+	tradeChatID  string
+	done         chan struct{}
+	wg           sync.WaitGroup
 }
 
 func New(url string, tg *telegram.Client, signalChatID, tradeChatID string) *Consumer {
@@ -52,7 +52,21 @@ func (c *Consumer) connect() error {
 		return fmt.Errorf("channel: %w", err)
 	}
 
+	if err := c.declareQueues(); err != nil {
+		return err
+	}
+
 	c.ch.Qos(5, 0, false)
+	return nil
+}
+
+func (c *Consumer) declareQueues() error {
+	queues := []string{"telegram_raw", "telegram_trades"}
+	for _, q := range queues {
+		if _, err := c.ch.QueueDeclare(q, true, false, false, false, nil); err != nil {
+			return fmt.Errorf("queue declare %s: %w", q, err)
+		}
+	}
 	return nil
 }
 
