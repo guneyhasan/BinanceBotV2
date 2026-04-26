@@ -8,6 +8,9 @@ interface PnL24hOverviewProps {
   compact?: boolean;
 }
 
+type ChartMode = 'total' | 'al' | 'sat' | 'compare';
+type ChartView = 'hourly' | 'cumulative';
+
 function pnlColor(value: number): 'green' | 'red' | 'gray' {
   if (value > 0) return 'green';
   if (value < 0) return 'red';
@@ -24,11 +27,38 @@ function accountLabel(accountType: string) {
   return accountType;
 }
 
-function PnLChart({ data }: { data: PnL24hResponse['chart'] }) {
-  const points = useMemo(() => {
-    if (data.length === 0) return '';
+function PnLChart({
+  data,
+  mode,
+  view,
+  onModeChange,
+  onViewChange,
+}: {
+  data: PnL24hResponse['chart'];
+  mode: ChartMode;
+  view: ChartView;
+  onModeChange: (mode: ChartMode) => void;
+  onViewChange: (view: ChartView) => void;
+}) {
+  const series = useMemo(() => {
+    const valueKey = view === 'cumulative' ? 'cumulative' : 'hourly';
+    const configs = {
+      total: [{ label: 'Toplam', className: 'stroke-blue-400', values: data.map(point => valueKey === 'cumulative' ? point.cumulative_realized_pnl : point.realized_net_pnl) }],
+      al: [{ label: 'AL', className: 'stroke-emerald-400', values: data.map(point => valueKey === 'cumulative' ? point.al_cumulative_realized_pnl : point.al_realized_net_pnl) }],
+      sat: [{ label: 'SAT', className: 'stroke-red-400', values: data.map(point => valueKey === 'cumulative' ? point.sat_cumulative_realized_pnl : point.sat_realized_net_pnl) }],
+      compare: [
+        { label: 'AL', className: 'stroke-emerald-400', values: data.map(point => valueKey === 'cumulative' ? point.al_cumulative_realized_pnl : point.al_realized_net_pnl) },
+        { label: 'SAT', className: 'stroke-red-400', values: data.map(point => valueKey === 'cumulative' ? point.sat_cumulative_realized_pnl : point.sat_realized_net_pnl) },
+      ],
+    } satisfies Record<ChartMode, { label: string; className: string; values: number[] }[]>;
 
-    const values = data.map(point => point.cumulative_realized_pnl);
+    return configs[mode];
+  }, [data, mode, view]);
+
+  const paths = useMemo(() => {
+    if (data.length === 0) return [];
+
+    const values = series.flatMap(item => item.values);
     const min = Math.min(0, ...values);
     const max = Math.max(0, ...values);
     const range = max - min || 1;
@@ -36,45 +66,93 @@ function PnLChart({ data }: { data: PnL24hResponse['chart'] }) {
     const height = 120;
     const pad = 12;
 
-    return data.map((point, index) => {
-      const x = data.length === 1 ? width / 2 : pad + (index / (data.length - 1)) * (width - pad * 2);
-      const y = height - pad - ((point.cumulative_realized_pnl - min) / range) * (height - pad * 2);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-  }, [data]);
+    return series.map(item => ({
+      ...item,
+      latest: item.values[item.values.length - 1] ?? 0,
+      points: item.values.map((value, index) => {
+        const x = data.length === 1 ? width / 2 : pad + (index / (data.length - 1)) * (width - pad * 2);
+        const y = height - pad - ((value - min) / range) * (height - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' '),
+    }));
+  }, [data, series]);
 
-  const lastPoint = data[data.length - 1];
+  const chartModes: { value: ChartMode; label: string }[] = [
+    { value: 'total', label: 'Toplam' },
+    { value: 'al', label: 'AL' },
+    { value: 'sat', label: 'SAT' },
+    { value: 'compare', label: 'AL/SAT' },
+  ];
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-950/60 p-4">
-      <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="flex flex-col gap-3 mb-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h3 className="text-sm font-semibold text-gray-200">Son 24 Saat Grafik</h3>
-          <p className="text-xs text-gray-500">Saatlik gerçekleşmiş kümülatif net K/Z</p>
+          <p className="text-xs text-gray-500">
+            {view === 'cumulative' ? 'Kümülatif' : 'Saatlik'} gerçekleşmiş net K/Z
+          </p>
         </div>
-        <div className="text-right text-xs text-gray-500">
-          <p>Guncel</p>
-          <PnLValue value={lastPoint?.cumulative_realized_pnl ?? 0} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap gap-1">
+            {chartModes.map(item => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => onModeChange(item.value)}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  mode === item.value ? 'bg-emerald-600/20 text-emerald-300' : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded bg-gray-800 p-0.5">
+            {(['hourly', 'cumulative'] as ChartView[]).map(item => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onViewChange(item)}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  view === item ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {item === 'hourly' ? 'Saatlik' : 'Kumule'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <svg viewBox="0 0 320 120" className="h-40 w-full overflow-visible">
         <line x1="12" y1="108" x2="308" y2="108" className="stroke-gray-800" strokeWidth="1" />
         <line x1="12" y1="60" x2="308" y2="60" className="stroke-gray-800/70" strokeWidth="1" strokeDasharray="4 4" />
-        {points ? (
-          <polyline
-            fill="none"
-            points={points}
-            className={(lastPoint?.cumulative_realized_pnl ?? 0) >= 0 ? 'stroke-emerald-400' : 'stroke-red-400'}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        {paths.length > 0 ? (
+          paths.map(path => (
+            <polyline
+              key={path.label}
+              fill="none"
+              points={path.points}
+              className={path.className}
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))
         ) : (
           <text x="160" y="64" textAnchor="middle" className="fill-gray-500 text-xs">
             Veri yok
           </text>
         )}
       </svg>
+      <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        {paths.map(path => (
+          <span key={path.label} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${path.label === 'AL' ? 'bg-emerald-400' : path.label === 'SAT' ? 'bg-red-400' : 'bg-blue-400'}`} />
+            {path.label}: <PnLValue value={path.latest} />
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -83,6 +161,8 @@ export default function PnL24hOverview({ compact = false }: PnL24hOverviewProps)
   const [data, setData] = useState<PnL24hResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [chartMode, setChartMode] = useState<ChartMode>('compare');
+  const [chartView, setChartView] = useState<ChartView>('cumulative');
 
   useEffect(() => {
     let isMounted = true;
@@ -166,7 +246,13 @@ export default function PnL24hOverview({ compact = false }: PnL24hOverviewProps)
 
       <div className={compact ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-5 gap-4'}>
         <div className={compact ? '' : 'lg:col-span-3'}>
-          <PnLChart data={data.chart} />
+          <PnLChart
+            data={data.chart}
+            mode={chartMode}
+            view={chartView}
+            onModeChange={setChartMode}
+            onViewChange={setChartView}
+          />
         </div>
 
         <div className={`bg-gray-900 border border-gray-800 rounded-lg p-4 ${compact ? '' : 'lg:col-span-2'}`}>

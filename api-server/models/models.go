@@ -158,9 +158,13 @@ type PnL24hCoinSummary struct {
 }
 
 type PnL24hChartPoint struct {
-	Time                  string  `json:"time"`
-	RealizedNetPnL        float64 `json:"realized_net_pnl"`
-	CumulativeRealizedPnL float64 `json:"cumulative_realized_pnl"`
+	Time                     string  `json:"time"`
+	RealizedNetPnL           float64 `json:"realized_net_pnl"`
+	ALRealizedNetPnL         float64 `json:"al_realized_net_pnl"`
+	SATRealizedNetPnL        float64 `json:"sat_realized_net_pnl"`
+	CumulativeRealizedPnL    float64 `json:"cumulative_realized_pnl"`
+	ALCumulativeRealizedPnL  float64 `json:"al_cumulative_realized_pnl"`
+	SATCumulativeRealizedPnL float64 `json:"sat_cumulative_realized_pnl"`
 }
 
 type PnL24hResponse struct {

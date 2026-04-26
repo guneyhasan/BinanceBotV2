@@ -119,7 +119,11 @@ export interface PnL24hCoinSummary {
 export interface PnL24hChartPoint {
   time: string;
   realized_net_pnl: number;
+  al_realized_net_pnl: number;
+  sat_realized_net_pnl: number;
   cumulative_realized_pnl: number;
+  al_cumulative_realized_pnl: number;
+  sat_cumulative_realized_pnl: number;
 }
 
 export interface PnL24hResponse {

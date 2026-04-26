@@ -355,10 +355,13 @@ func (s *Store) GetPnL24hCoinSummaries(ctx context.Context, from, to time.Time) 
 
 func (s *Store) GetPnL24hChartPoints(ctx context.Context, from, to time.Time) ([]models.PnL24hChartPoint, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT
-		date_trunc('hour', closed_at) as bucket,
-		COALESCE(SUM(net_pnl), 0) as realized_net
-		FROM pnl_records
-		WHERE closed_at >= $1 AND closed_at <= $2
+		date_trunc('hour', p.closed_at) as bucket,
+		COALESCE(SUM(p.net_pnl), 0) as realized_net,
+		COALESCE(SUM(CASE WHEN t.account_type = 'AL_ACCOUNT' THEN p.net_pnl ELSE 0 END), 0) as al_realized_net,
+		COALESCE(SUM(CASE WHEN t.account_type = 'SAT_ACCOUNT' THEN p.net_pnl ELSE 0 END), 0) as sat_realized_net
+		FROM pnl_records p
+		JOIN trades t ON t.id = p.closed_trade_id
+		WHERE p.closed_at >= $1 AND p.closed_at <= $2
 		GROUP BY bucket
 		ORDER BY bucket ASC`, from, to)
 	if err != nil {
@@ -366,27 +369,35 @@ func (s *Store) GetPnL24hChartPoints(ctx context.Context, from, to time.Time) ([
 	}
 	defer rows.Close()
 
-	byHour := map[time.Time]float64{}
+	byHour := map[time.Time]models.PnL24hChartPoint{}
 	for rows.Next() {
 		var bucket time.Time
-		var realizedNet float64
-		if err := rows.Scan(&bucket, &realizedNet); err != nil {
+		var point models.PnL24hChartPoint
+		if err := rows.Scan(&bucket, &point.RealizedNetPnL, &point.ALRealizedNetPnL, &point.SATRealizedNetPnL); err != nil {
 			return nil, err
 		}
-		byHour[bucket.UTC().Truncate(time.Hour)] = realizedNet
+		byHour[bucket.UTC().Truncate(time.Hour)] = point
 	}
 
 	start := from.UTC().Truncate(time.Hour)
 	end := to.UTC().Truncate(time.Hour)
 	points := []models.PnL24hChartPoint{}
 	cumulative := 0.0
+	alCumulative := 0.0
+	satCumulative := 0.0
 	for t := start; !t.After(end); t = t.Add(time.Hour) {
-		realizedNet := byHour[t]
-		cumulative += realizedNet
+		point := byHour[t]
+		cumulative += point.RealizedNetPnL
+		alCumulative += point.ALRealizedNetPnL
+		satCumulative += point.SATRealizedNetPnL
 		points = append(points, models.PnL24hChartPoint{
-			Time:                  t.Format(time.RFC3339),
-			RealizedNetPnL:        realizedNet,
-			CumulativeRealizedPnL: cumulative,
+			Time:                     t.Format(time.RFC3339),
+			RealizedNetPnL:           point.RealizedNetPnL,
+			ALRealizedNetPnL:         point.ALRealizedNetPnL,
+			SATRealizedNetPnL:        point.SATRealizedNetPnL,
+			CumulativeRealizedPnL:    cumulative,
+			ALCumulativeRealizedPnL:  alCumulative,
+			SATCumulativeRealizedPnL: satCumulative,
 		})
 	}
 	return points, nil
