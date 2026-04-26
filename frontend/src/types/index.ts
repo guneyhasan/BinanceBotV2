@@ -130,17 +130,12 @@ export interface AccountBalance {
   account_type: string;
   label: string;
   asset: string;
+  total_balance: number;
   wallet_balance: number;
   available_balance: number;
   cross_wallet_balance: number;
   unrealized_pnl: number;
   error?: string;
-}
-
-export interface BalanceChartPoint {
-  time: string;
-  al_balance: number;
-  sat_balance: number;
 }
 
 export interface PnL24hResponse {
@@ -151,7 +146,6 @@ export interface PnL24hResponse {
   coins: PnL24hCoinSummary[];
   chart: PnL24hChartPoint[];
   balances: AccountBalance[];
-  balance_chart: BalanceChartPoint[];
   total_realized_gross_pnl: number;
   total_realized_commission: number;
   total_realized_net_pnl: number;

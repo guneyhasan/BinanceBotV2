@@ -277,7 +277,6 @@ func (h *Handler) GetPnLLast24h(c *gin.Context) {
 	response.Accounts = accounts
 	response.Coins = coins
 	response.Balances = h.buildAccountBalances()
-	response.BalanceChart = buildBalanceChart(chart, response.Balances)
 
 	c.JSON(http.StatusOK, response)
 }
@@ -397,7 +396,7 @@ func (h *Handler) fetchAccountBalance(accountType, apiKey, apiSecret string) (mo
 	signature := signBinanceParams(params, apiSecret)
 	params.Set("signature", signature)
 
-	req, err := http.NewRequest(http.MethodGet, h.binanceBaseURL+"/fapi/v2/balance?"+params.Encode(), nil)
+	req, err := http.NewRequest(http.MethodGet, h.binanceBaseURL+"/fapi/v2/account?"+params.Encode(), nil)
 	if err != nil {
 		return balance, err
 	}
@@ -417,57 +416,22 @@ func (h *Handler) fetchAccountBalance(accountType, apiKey, apiSecret string) (mo
 		return balance, fmt.Errorf("%s bakiye istegi status %d: %s", accountLabel(accountType), resp.StatusCode, string(body))
 	}
 
-	var result []struct {
-		Asset              string `json:"asset"`
-		Balance            string `json:"balance"`
+	var result struct {
+		TotalWalletBalance string `json:"totalWalletBalance"`
+		TotalMarginBalance string `json:"totalMarginBalance"`
 		AvailableBalance   string `json:"availableBalance"`
-		CrossWalletBalance string `json:"crossWalletBalance"`
-		CrossUnPnl         string `json:"crossUnPnl"`
+		TotalUnrealizedPnL string `json:"totalUnrealizedProfit"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return balance, fmt.Errorf("%s bakiye cevabi parse edilemedi: %w", accountLabel(accountType), err)
 	}
 
-	for _, item := range result {
-		if item.Asset != "USDT" {
-			continue
-		}
-		balance.WalletBalance = parseBinanceFloat(item.Balance)
-		balance.AvailableBalance = parseBinanceFloat(item.AvailableBalance)
-		balance.CrossWalletBalance = parseBinanceFloat(item.CrossWalletBalance)
-		balance.UnrealizedPnL = parseBinanceFloat(item.CrossUnPnl)
-		return balance, nil
-	}
-
-	return balance, fmt.Errorf("%s USDT bakiyesi bulunamadi", accountLabel(accountType))
-}
-
-func buildBalanceChart(chart []models.PnL24hChartPoint, balances []models.AccountBalance) []models.BalanceChartPoint {
-	alBalance := findBalance(balances, "AL_ACCOUNT")
-	satBalance := findBalance(balances, "SAT_ACCOUNT")
-	if len(chart) == 0 {
-		return []models.BalanceChartPoint{}
-	}
-
-	last := chart[len(chart)-1]
-	points := make([]models.BalanceChartPoint, 0, len(chart))
-	for _, point := range chart {
-		points = append(points, models.BalanceChartPoint{
-			Time:       point.Time,
-			ALBalance:  alBalance - last.ALCumulativeRealizedPnL + point.ALCumulativeRealizedPnL,
-			SATBalance: satBalance - last.SATCumulativeRealizedPnL + point.SATCumulativeRealizedPnL,
-		})
-	}
-	return points
-}
-
-func findBalance(balances []models.AccountBalance, accountType string) float64 {
-	for _, balance := range balances {
-		if balance.AccountType == accountType {
-			return balance.WalletBalance
-		}
-	}
-	return 0
+	balance.TotalBalance = parseBinanceFloat(result.TotalWalletBalance)
+	balance.WalletBalance = balance.TotalBalance
+	balance.AvailableBalance = parseBinanceFloat(result.AvailableBalance)
+	balance.CrossWalletBalance = parseBinanceFloat(result.TotalMarginBalance)
+	balance.UnrealizedPnL = parseBinanceFloat(result.TotalUnrealizedPnL)
+	return balance, nil
 }
 
 func signBinanceParams(params url.Values, secret string) string {

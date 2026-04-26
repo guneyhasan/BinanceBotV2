@@ -157,67 +157,49 @@ function PnLChart({
   );
 }
 
-function AccountBalanceChart({
-  title,
-  colorClass,
-  data,
-  valueKey,
-}: {
-  title: string;
-  colorClass: string;
-  data: PnL24hResponse['balance_chart'];
-  valueKey: 'al_balance' | 'sat_balance';
-}) {
-  const path = useMemo(() => {
-    if (data.length === 0) return { points: '', latest: 0 };
-
-    const values = data.map(point => point[valueKey]);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min || 1;
-    const width = 320;
-    const height = 100;
-    const pad = 12;
-
-    return {
-      latest: values[values.length - 1] ?? 0,
-      points: values.map((value, index) => {
-        const x = data.length === 1 ? width / 2 : pad + (index / (data.length - 1)) * (width - pad * 2);
-        const y = height - pad - ((value - min) / range) * (height - pad * 2);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(' '),
-    };
-  }, [data, valueKey]);
+function AccountBalanceChart({ balance }: { balance?: PnL24hResponse['balances'][number] }) {
+  const total = balance?.total_balance ?? balance?.wallet_balance ?? 0;
+  const available = balance?.available_balance ?? 0;
+  const used = Math.max(total - available, 0);
+  const availablePct = total > 0 ? Math.max(0, Math.min(100, (available / total) * 100)) : 0;
+  const usedPct = total > 0 ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-950/60 p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-200">{title}</h3>
-          <p className="text-xs text-gray-500">Son 24 saat tahmini wallet balance</p>
+          <h3 className="text-sm font-semibold text-gray-200">{balance?.label ?? 'Hesap'} Bakiye Grafigi</h3>
+          <p className="text-xs text-gray-500">Binance mevcut toplam ve available bakiye</p>
         </div>
         <div className="text-right text-xs text-gray-500">
-          <p>Guncel</p>
-          <span className="font-mono font-medium text-gray-200">{formatUsd(path.latest)}</span>
+          <p>Toplam</p>
+          <span className="font-mono font-medium text-gray-200">{formatUsd(total)}</span>
         </div>
       </div>
-      <svg viewBox="0 0 320 100" className="h-32 w-full overflow-visible">
-        <line x1="12" y1="88" x2="308" y2="88" className="stroke-gray-800" strokeWidth="1" />
-        {path.points ? (
-          <polyline
-            fill="none"
-            points={path.points}
-            className={colorClass}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : (
-          <text x="160" y="54" textAnchor="middle" className="fill-gray-500 text-xs">
-            Bakiye verisi yok
-          </text>
-        )}
-      </svg>
+      {balance?.error ? (
+        <p className="text-sm text-red-300">{balance.error}</p>
+      ) : (
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+              <span>Available / islem yapilabilir</span>
+              <span>{formatUsd(available)}</span>
+            </div>
+            <div className="h-4 overflow-hidden rounded-full bg-gray-800">
+              <div className="h-full rounded-full bg-emerald-400" style={{ width: `${availablePct}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+              <span>Pozisyon/marjin tarafinda kullanilan</span>
+              <span>{formatUsd(used)}</span>
+            </div>
+            <div className="h-4 overflow-hidden rounded-full bg-gray-800">
+              <div className="h-full rounded-full bg-yellow-400" style={{ width: `${usedPct}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -314,31 +296,21 @@ export default function PnL24hOverview({ compact = false }: PnL24hOverviewProps)
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card
           title="AL Hesabi Bakiye"
-          value={alBalance?.error ? 'Hata' : formatUsd(alBalance?.wallet_balance ?? 0)}
-          subtitle={alBalance?.error || `Kullanilabilir ${formatUsd(alBalance?.available_balance ?? 0)} / Anlik PnL ${formatUsd(alBalance?.unrealized_pnl ?? 0)}`}
+          value={alBalance?.error ? 'Hata' : formatUsd(alBalance?.total_balance ?? alBalance?.wallet_balance ?? 0)}
+          subtitle={alBalance?.error || `Available ${formatUsd(alBalance?.available_balance ?? 0)} / Acik PnL ${formatUsd(alBalance?.unrealized_pnl ?? 0)}`}
           color={alBalance?.error ? 'red' : 'green'}
         />
         <Card
           title="SAT Hesabi Bakiye"
-          value={satBalance?.error ? 'Hata' : formatUsd(satBalance?.wallet_balance ?? 0)}
-          subtitle={satBalance?.error || `Kullanilabilir ${formatUsd(satBalance?.available_balance ?? 0)} / Anlik PnL ${formatUsd(satBalance?.unrealized_pnl ?? 0)}`}
+          value={satBalance?.error ? 'Hata' : formatUsd(satBalance?.total_balance ?? satBalance?.wallet_balance ?? 0)}
+          subtitle={satBalance?.error || `Available ${formatUsd(satBalance?.available_balance ?? 0)} / Acik PnL ${formatUsd(satBalance?.unrealized_pnl ?? 0)}`}
           color={satBalance?.error ? 'red' : 'red'}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <AccountBalanceChart
-          title="AL Hesabi Bakiye Grafigi"
-          colorClass="stroke-emerald-400"
-          data={data.balance_chart}
-          valueKey="al_balance"
-        />
-        <AccountBalanceChart
-          title="SAT Hesabi Bakiye Grafigi"
-          colorClass="stroke-red-400"
-          data={data.balance_chart}
-          valueKey="sat_balance"
-        />
+        <AccountBalanceChart balance={alBalance} />
+        <AccountBalanceChart balance={satBalance} />
       </div>
 
       <div className={compact ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 lg:grid-cols-5 gap-4'}>
