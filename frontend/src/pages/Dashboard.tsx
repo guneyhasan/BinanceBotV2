@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { Trade, PnLSummary, SystemStats, UnrealizedPnLResponse } from '../types';
 import Card from '../components/Card';
 import PnLValue from '../components/PnLValue';
+import PnL24hOverview from '../components/PnL24hOverview';
 
 export default function Dashboard() {
   const [activeTrades, setActiveTrades] = useState<Trade[]>([]);
@@ -72,6 +73,8 @@ export default function Dashboard() {
           color="yellow"
         />
       </div>
+
+      <PnL24hOverview compact />
 
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <div className="flex items-center justify-between gap-4 mb-4">

@@ -131,6 +131,52 @@ type UnrealizedPnLResponse struct {
 	UpdatedAt       string              `json:"updated_at"`
 }
 
+type PnL24hAccountSummary struct {
+	AccountType      string  `json:"account_type"`
+	Label            string  `json:"label"`
+	TradeCount       int     `json:"trade_count"`
+	RealizedGrossPnL float64 `json:"realized_gross_pnl"`
+	RealizedComm     float64 `json:"realized_commission"`
+	RealizedNetPnL   float64 `json:"realized_net_pnl"`
+	UnrealizedNetPnL float64 `json:"unrealized_net_pnl"`
+	TotalNetPnL      float64 `json:"total_net_pnl"`
+	WinCount         int     `json:"win_count"`
+	LossCount        int     `json:"loss_count"`
+	WinRate          float64 `json:"win_rate"`
+}
+
+type PnL24hCoinSummary struct {
+	Coin             string  `json:"coin"`
+	TradeCount       int     `json:"trade_count"`
+	RealizedGrossPnL float64 `json:"realized_gross_pnl"`
+	RealizedComm     float64 `json:"realized_commission"`
+	RealizedNetPnL   float64 `json:"realized_net_pnl"`
+	UnrealizedNetPnL float64 `json:"unrealized_net_pnl"`
+	TotalNetPnL      float64 `json:"total_net_pnl"`
+	ALNetPnL         float64 `json:"al_net_pnl"`
+	SATNetPnL        float64 `json:"sat_net_pnl"`
+}
+
+type PnL24hChartPoint struct {
+	Time                  string  `json:"time"`
+	RealizedNetPnL        float64 `json:"realized_net_pnl"`
+	CumulativeRealizedPnL float64 `json:"cumulative_realized_pnl"`
+}
+
+type PnL24hResponse struct {
+	From                  string                 `json:"from"`
+	To                    string                 `json:"to"`
+	UpdatedAt             string                 `json:"updated_at"`
+	Accounts              []PnL24hAccountSummary `json:"accounts"`
+	Coins                 []PnL24hCoinSummary    `json:"coins"`
+	Chart                 []PnL24hChartPoint     `json:"chart"`
+	TotalRealizedGross    float64                `json:"total_realized_gross_pnl"`
+	TotalRealizedComm     float64                `json:"total_realized_commission"`
+	TotalRealizedNetPnL   float64                `json:"total_realized_net_pnl"`
+	TotalUnrealizedNetPnL float64                `json:"total_unrealized_net_pnl"`
+	TotalNetPnL           float64                `json:"total_net_pnl"`
+}
+
 type SystemStats struct {
 	TotalWebhooks     int             `json:"total_webhooks"`
 	CompletedCount    int             `json:"completed_count"`

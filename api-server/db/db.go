@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"api-server/models"
 
@@ -283,6 +284,112 @@ func (s *Store) GetPnLSummary(ctx context.Context, coin string) ([]models.PnLSum
 		summaries = append(summaries, sm)
 	}
 	return summaries, nil
+}
+
+func (s *Store) GetPnL24hAccountSummaries(ctx context.Context, from, to time.Time) ([]models.PnL24hAccountSummary, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT
+		t.account_type,
+		COUNT(*) as trade_count,
+		COALESCE(SUM(p.gross_pnl), 0) as realized_gross,
+		COALESCE(SUM(p.total_commission), 0) as realized_comm,
+		COALESCE(SUM(p.net_pnl), 0) as realized_net,
+		COALESCE(SUM(CASE WHEN p.net_pnl > 0 THEN 1 ELSE 0 END), 0) as wins,
+		COALESCE(SUM(CASE WHEN p.net_pnl <= 0 THEN 1 ELSE 0 END), 0) as losses
+		FROM pnl_records p
+		JOIN trades t ON t.id = p.closed_trade_id
+		WHERE p.closed_at >= $1 AND p.closed_at <= $2
+		GROUP BY t.account_type
+		ORDER BY t.account_type`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []models.PnL24hAccountSummary
+	for rows.Next() {
+		var sm models.PnL24hAccountSummary
+		err := rows.Scan(&sm.AccountType, &sm.TradeCount, &sm.RealizedGrossPnL, &sm.RealizedComm, &sm.RealizedNetPnL, &sm.WinCount, &sm.LossCount)
+		if err != nil {
+			return nil, err
+		}
+		if sm.TradeCount > 0 {
+			sm.WinRate = float64(sm.WinCount) / float64(sm.TradeCount) * 100
+		}
+		sm.TotalNetPnL = sm.RealizedNetPnL + sm.UnrealizedNetPnL
+		summaries = append(summaries, sm)
+	}
+	return summaries, nil
+}
+
+func (s *Store) GetPnL24hCoinSummaries(ctx context.Context, from, to time.Time) ([]models.PnL24hCoinSummary, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT
+		p.coin,
+		COUNT(*) as trade_count,
+		COALESCE(SUM(p.gross_pnl), 0) as realized_gross,
+		COALESCE(SUM(p.total_commission), 0) as realized_comm,
+		COALESCE(SUM(p.net_pnl), 0) as realized_net,
+		COALESCE(SUM(CASE WHEN t.account_type = 'AL_ACCOUNT' THEN p.net_pnl ELSE 0 END), 0) as al_net,
+		COALESCE(SUM(CASE WHEN t.account_type = 'SAT_ACCOUNT' THEN p.net_pnl ELSE 0 END), 0) as sat_net
+		FROM pnl_records p
+		JOIN trades t ON t.id = p.closed_trade_id
+		WHERE p.closed_at >= $1 AND p.closed_at <= $2
+		GROUP BY p.coin
+		ORDER BY realized_net DESC`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []models.PnL24hCoinSummary
+	for rows.Next() {
+		var sm models.PnL24hCoinSummary
+		err := rows.Scan(&sm.Coin, &sm.TradeCount, &sm.RealizedGrossPnL, &sm.RealizedComm, &sm.RealizedNetPnL, &sm.ALNetPnL, &sm.SATNetPnL)
+		if err != nil {
+			return nil, err
+		}
+		sm.TotalNetPnL = sm.RealizedNetPnL + sm.UnrealizedNetPnL
+		summaries = append(summaries, sm)
+	}
+	return summaries, nil
+}
+
+func (s *Store) GetPnL24hChartPoints(ctx context.Context, from, to time.Time) ([]models.PnL24hChartPoint, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT
+		date_trunc('hour', closed_at) as bucket,
+		COALESCE(SUM(net_pnl), 0) as realized_net
+		FROM pnl_records
+		WHERE closed_at >= $1 AND closed_at <= $2
+		GROUP BY bucket
+		ORDER BY bucket ASC`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byHour := map[time.Time]float64{}
+	for rows.Next() {
+		var bucket time.Time
+		var realizedNet float64
+		if err := rows.Scan(&bucket, &realizedNet); err != nil {
+			return nil, err
+		}
+		byHour[bucket.UTC().Truncate(time.Hour)] = realizedNet
+	}
+
+	start := from.UTC().Truncate(time.Hour)
+	end := to.UTC().Truncate(time.Hour)
+	points := []models.PnL24hChartPoint{}
+	cumulative := 0.0
+	for t := start; !t.After(end); t = t.Add(time.Hour) {
+		realizedNet := byHour[t]
+		cumulative += realizedNet
+		points = append(points, models.PnL24hChartPoint{
+			Time:                  t.Format(time.RFC3339),
+			RealizedNetPnL:        realizedNet,
+			CumulativeRealizedPnL: cumulative,
+		})
+	}
+	return points, nil
 }
 
 func (s *Store) GetWebhooks(ctx context.Context, coin, signal, status string) ([]models.WebhookLog, error) {

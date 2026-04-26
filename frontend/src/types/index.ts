@@ -90,6 +90,52 @@ export interface UnrealizedPnLResponse {
   updated_at: string;
 }
 
+export interface PnL24hAccountSummary {
+  account_type: string;
+  label: string;
+  trade_count: number;
+  realized_gross_pnl: number;
+  realized_commission: number;
+  realized_net_pnl: number;
+  unrealized_net_pnl: number;
+  total_net_pnl: number;
+  win_count: number;
+  loss_count: number;
+  win_rate: number;
+}
+
+export interface PnL24hCoinSummary {
+  coin: string;
+  trade_count: number;
+  realized_gross_pnl: number;
+  realized_commission: number;
+  realized_net_pnl: number;
+  unrealized_net_pnl: number;
+  total_net_pnl: number;
+  al_net_pnl: number;
+  sat_net_pnl: number;
+}
+
+export interface PnL24hChartPoint {
+  time: string;
+  realized_net_pnl: number;
+  cumulative_realized_pnl: number;
+}
+
+export interface PnL24hResponse {
+  from: string;
+  to: string;
+  updated_at: string;
+  accounts: PnL24hAccountSummary[];
+  coins: PnL24hCoinSummary[];
+  chart: PnL24hChartPoint[];
+  total_realized_gross_pnl: number;
+  total_realized_commission: number;
+  total_realized_net_pnl: number;
+  total_unrealized_net_pnl: number;
+  total_net_pnl: number;
+}
+
 export interface ExecutionLog {
   id: number;
   webhook_id: number;

@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { PnLRecord, PnLSeries, PnLSummary } from '../types';
 import PnLValue from '../components/PnLValue';
 import Card from '../components/Card';
+import PnL24hOverview from '../components/PnL24hOverview';
 
 type Tab = 'summary' | 'records' | 'series';
 
@@ -35,6 +36,8 @@ export default function PnLAnalysis() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Kar/Zarar Analizi</h1>
+
+      <PnL24hOverview />
 
       <div className="flex gap-3 flex-wrap items-center">
         <div className="flex bg-gray-800 rounded overflow-hidden">

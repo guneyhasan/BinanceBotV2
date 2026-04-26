@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -149,20 +151,144 @@ func (h *Handler) GetPnLCombined(c *gin.Context) {
 }
 
 func (h *Handler) GetUnrealizedPnL(c *gin.Context) {
-	active := true
-	trades, err := h.store.GetTrades(c.Request.Context(), "", "", &active)
+	response, statusCode, err := h.buildUnrealizedPnL(c.Request.Context())
+	if err != nil {
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) GetPnLLast24h(c *gin.Context) {
+	now := time.Now().UTC()
+	from := now.Add(-24 * time.Hour)
+
+	accountSummaries, err := h.store.GetPnL24hAccountSummaries(c.Request.Context(), from, now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	coinSummaries, err := h.store.GetPnL24hCoinSummaries(c.Request.Context(), from, now)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	chart, err := h.store.GetPnL24hChartPoints(c.Request.Context(), from, now)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	unrealized, statusCode, err := h.buildUnrealizedPnL(c.Request.Context())
+	if err != nil {
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+
+	accountByType := map[string]*models.PnL24hAccountSummary{}
+	for _, accountType := range []string{"AL_ACCOUNT", "SAT_ACCOUNT"} {
+		accountByType[accountType] = &models.PnL24hAccountSummary{
+			AccountType: accountType,
+			Label:       accountLabel(accountType),
+		}
+	}
+	for i := range accountSummaries {
+		sm := accountSummaries[i]
+		sm.Label = accountLabel(sm.AccountType)
+		sm.TotalNetPnL = sm.RealizedNetPnL
+		accountByType[sm.AccountType] = &sm
+	}
+
+	coinByName := map[string]*models.PnL24hCoinSummary{}
+	for i := range coinSummaries {
+		sm := coinSummaries[i]
+		sm.TotalNetPnL = sm.RealizedNetPnL
+		coinByName[sm.Coin] = &sm
+	}
+
+	for _, item := range unrealized.Items {
+		account, ok := accountByType[item.AccountType]
+		if !ok {
+			account = &models.PnL24hAccountSummary{
+				AccountType: item.AccountType,
+				Label:       accountLabel(item.AccountType),
+			}
+			accountByType[item.AccountType] = account
+		}
+		account.UnrealizedNetPnL += item.NetPnL
+		account.TotalNetPnL = account.RealizedNetPnL + account.UnrealizedNetPnL
+
+		coin, ok := coinByName[item.Coin]
+		if !ok {
+			coin = &models.PnL24hCoinSummary{Coin: item.Coin}
+			coinByName[item.Coin] = coin
+		}
+		coin.UnrealizedNetPnL += item.NetPnL
+		coin.TotalNetPnL = coin.RealizedNetPnL + coin.UnrealizedNetPnL
+		if item.AccountType == "AL_ACCOUNT" {
+			coin.ALNetPnL += item.NetPnL
+		}
+		if item.AccountType == "SAT_ACCOUNT" {
+			coin.SATNetPnL += item.NetPnL
+		}
+	}
+
+	accounts := make([]models.PnL24hAccountSummary, 0, len(accountByType))
+	coins := make([]models.PnL24hCoinSummary, 0, len(coinByName))
+	response := models.PnL24hResponse{
+		From:                  from.Format(time.RFC3339),
+		To:                    now.Format(time.RFC3339),
+		UpdatedAt:             now.Format(time.RFC3339),
+		Chart:                 chart,
+		TotalUnrealizedNetPnL: unrealized.TotalNetPnL,
+	}
+
+	for _, accountType := range []string{"AL_ACCOUNT", "SAT_ACCOUNT"} {
+		if account, ok := accountByType[accountType]; ok {
+			response.TotalRealizedGross += account.RealizedGrossPnL
+			response.TotalRealizedComm += account.RealizedComm
+			response.TotalRealizedNetPnL += account.RealizedNetPnL
+			accounts = append(accounts, *account)
+			delete(accountByType, accountType)
+		}
+	}
+	for _, account := range accountByType {
+		response.TotalRealizedGross += account.RealizedGrossPnL
+		response.TotalRealizedComm += account.RealizedComm
+		response.TotalRealizedNetPnL += account.RealizedNetPnL
+		accounts = append(accounts, *account)
+	}
+	response.TotalNetPnL = response.TotalRealizedNetPnL + response.TotalUnrealizedNetPnL
+
+	for _, coin := range coinByName {
+		coins = append(coins, *coin)
+	}
+	sort.Slice(coins, func(i, j int) bool {
+		return coins[i].TotalNetPnL > coins[j].TotalNetPnL
+	})
+
+	response.Accounts = accounts
+	response.Coins = coins
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) buildUnrealizedPnL(ctx context.Context) (*models.UnrealizedPnLResponse, int, error) {
+	active := true
+	trades, err := h.store.GetTrades(ctx, "", "", &active)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
 	}
 	if trades == nil {
 		trades = []models.Trade{}
 	}
 
-	cfg, err := h.store.GetConfig(c.Request.Context())
+	cfg, err := h.store.GetConfig(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
 
 	priceCache := map[string]float64{}
@@ -177,8 +303,7 @@ func (h *Handler) GetUnrealizedPnL(c *gin.Context) {
 		if !ok {
 			currentPrice, err = h.fetchBinancePrice(trade.Coin)
 			if err != nil {
-				c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-				return
+				return nil, http.StatusBadGateway, err
 			}
 			priceCache[trade.Coin] = currentPrice
 		}
@@ -219,7 +344,18 @@ func (h *Handler) GetUnrealizedPnL(c *gin.Context) {
 		response.TotalNetPnL += netPnL
 	}
 
-	c.JSON(http.StatusOK, response)
+	return &response, http.StatusOK, nil
+}
+
+func accountLabel(accountType string) string {
+	switch accountType {
+	case "AL_ACCOUNT":
+		return "AL Hesabı"
+	case "SAT_ACCOUNT":
+		return "SAT Hesabı"
+	default:
+		return accountType
+	}
 }
 
 func (h *Handler) fetchBinancePrice(symbol string) (float64, error) {
