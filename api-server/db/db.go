@@ -248,11 +248,11 @@ func (s *Store) GetPnLSummary(ctx context.Context, coin string) ([]models.PnLSum
 		COALESCE(coin,'ALL') as coin,
 		COALESCE(side,'ALL') as side,
 		COUNT(*) as trade_count,
-		SUM(gross_pnl) as total_gross,
-		SUM(total_commission) as total_comm,
-		SUM(net_pnl) as total_net,
-		SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END) as wins,
-		SUM(CASE WHEN net_pnl <= 0 THEN 1 ELSE 0 END) as losses
+		COALESCE(SUM(gross_pnl), 0) as total_gross,
+		COALESCE(SUM(total_commission), 0) as total_comm,
+		COALESCE(SUM(net_pnl), 0) as total_net,
+		COALESCE(SUM(CASE WHEN net_pnl > 0 THEN 1 ELSE 0 END), 0) as wins,
+		COALESCE(SUM(CASE WHEN net_pnl <= 0 THEN 1 ELSE 0 END), 0) as losses
 		FROM pnl_records`
 	args := []interface{}{}
 	idx := 1

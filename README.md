@@ -35,7 +35,7 @@ docker compose up -d
 ```json
 {
   "signal": "AL1",
-  "ticker": "ETHUSDT"
+  "ticker": "{{ticker}}"
 }
 ```
 
