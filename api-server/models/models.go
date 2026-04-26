@@ -19,18 +19,18 @@ type ConfigUpdate struct {
 }
 
 type Trade struct {
-	ID             int      `json:"id"`
-	Coin           string   `json:"coin"`
-	SignalType     string   `json:"signal_type"`
-	Side           string   `json:"side"`
-	AccountType    string   `json:"account_type"`
-	Quantity       float64  `json:"quantity"`
-	EntryPrice     float64  `json:"entry_price"`
-	Leverage       int      `json:"leverage"`
-	Commission     float64  `json:"commission"`
-	IsActive       bool     `json:"is_active"`
-	BinanceOrderID *int64   `json:"binance_order_id"`
-	CreatedAt      string   `json:"created_at"`
+	ID             int     `json:"id"`
+	Coin           string  `json:"coin"`
+	SignalType     string  `json:"signal_type"`
+	Side           string  `json:"side"`
+	AccountType    string  `json:"account_type"`
+	Quantity       float64 `json:"quantity"`
+	EntryPrice     float64 `json:"entry_price"`
+	Leverage       int     `json:"leverage"`
+	Commission     float64 `json:"commission"`
+	IsActive       bool    `json:"is_active"`
+	BinanceOrderID *int64  `json:"binance_order_id"`
+	CreatedAt      string  `json:"created_at"`
 }
 
 type PnLRecord struct {
@@ -54,18 +54,18 @@ type PnLRecord struct {
 }
 
 type WebhookLog struct {
-	ID          int              `json:"id"`
-	RequestID   string           `json:"request_id"`
-	Coin        string           `json:"coin"`
-	SignalType  string           `json:"signal_type"`
-	RawBody     interface{}      `json:"raw_body"`
-	Status      string           `json:"status"`
-	TradeID     *int             `json:"trade_id"`
-	ErrorMessage *string         `json:"error_message"`
-	RetryCount  int              `json:"retry_count"`
-	ReceivedAt  string           `json:"received_at"`
-	CompletedAt *string          `json:"completed_at"`
-	Executions  []ExecutionLog   `json:"executions,omitempty"`
+	ID           int            `json:"id"`
+	RequestID    string         `json:"request_id"`
+	Coin         string         `json:"coin"`
+	SignalType   string         `json:"signal_type"`
+	RawBody      interface{}    `json:"raw_body"`
+	Status       string         `json:"status"`
+	TradeID      *int           `json:"trade_id"`
+	ErrorMessage *string        `json:"error_message"`
+	RetryCount   int            `json:"retry_count"`
+	ReceivedAt   string         `json:"received_at"`
+	CompletedAt  *string        `json:"completed_at"`
+	Executions   []ExecutionLog `json:"executions,omitempty"`
 }
 
 type ExecutionLog struct {
@@ -106,19 +106,44 @@ type PnLSummary struct {
 	WinRate         float64 `json:"win_rate"`
 }
 
+type UnrealizedPnLItem struct {
+	TradeID         int     `json:"trade_id"`
+	Coin            string  `json:"coin"`
+	SignalType      string  `json:"signal_type"`
+	Side            string  `json:"side"`
+	AccountType     string  `json:"account_type"`
+	Quantity        float64 `json:"quantity"`
+	EntryPrice      float64 `json:"entry_price"`
+	CurrentPrice    float64 `json:"current_price"`
+	Leverage        int     `json:"leverage"`
+	GrossPnL        float64 `json:"gross_pnl"`
+	OpenCommission  float64 `json:"open_commission"`
+	CloseCommission float64 `json:"close_commission"`
+	TotalCommission float64 `json:"total_commission"`
+	NetPnL          float64 `json:"net_pnl"`
+}
+
+type UnrealizedPnLResponse struct {
+	Items           []UnrealizedPnLItem `json:"items"`
+	TotalGrossPnL   float64             `json:"total_gross_pnl"`
+	TotalCommission float64             `json:"total_commission"`
+	TotalNetPnL     float64             `json:"total_net_pnl"`
+	UpdatedAt       string              `json:"updated_at"`
+}
+
 type SystemStats struct {
-	TotalWebhooks       int              `json:"total_webhooks"`
-	CompletedCount      int              `json:"completed_count"`
-	RetrySuccessCount   int              `json:"retry_success_count"`
-	FailedCount         int              `json:"failed_count"`
-	ProcessingCount     int              `json:"processing_count"`
-	SuccessRate         float64          `json:"success_rate"`
-	RetryRate           float64          `json:"retry_rate"`
-	FailRate            float64          `json:"fail_rate"`
-	AvgRetryCount       float64          `json:"avg_retry_count"`
-	ErrorBreakdown      []ErrorCategory  `json:"error_breakdown"`
-	FailedDetails       []WebhookLog     `json:"failed_details"`
-	UpdatedAt           time.Time        `json:"updated_at"`
+	TotalWebhooks     int             `json:"total_webhooks"`
+	CompletedCount    int             `json:"completed_count"`
+	RetrySuccessCount int             `json:"retry_success_count"`
+	FailedCount       int             `json:"failed_count"`
+	ProcessingCount   int             `json:"processing_count"`
+	SuccessRate       float64         `json:"success_rate"`
+	RetryRate         float64         `json:"retry_rate"`
+	FailRate          float64         `json:"fail_rate"`
+	AvgRetryCount     float64         `json:"avg_retry_count"`
+	ErrorBreakdown    []ErrorCategory `json:"error_breakdown"`
+	FailedDetails     []WebhookLog    `json:"failed_details"`
+	UpdatedAt         time.Time       `json:"updated_at"`
 }
 
 type ErrorCategory struct {

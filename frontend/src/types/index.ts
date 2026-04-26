@@ -65,6 +65,31 @@ export interface PnLSummary {
   win_rate: number;
 }
 
+export interface UnrealizedPnLItem {
+  trade_id: number;
+  coin: string;
+  signal_type: string;
+  side: string;
+  account_type: string;
+  quantity: number;
+  entry_price: number;
+  current_price: number;
+  leverage: number;
+  gross_pnl: number;
+  open_commission: number;
+  close_commission: number;
+  total_commission: number;
+  net_pnl: number;
+}
+
+export interface UnrealizedPnLResponse {
+  items: UnrealizedPnLItem[];
+  total_gross_pnl: number;
+  total_commission: number;
+  total_net_pnl: number;
+  updated_at: string;
+}
+
 export interface ExecutionLog {
   id: number;
   webhook_id: number;

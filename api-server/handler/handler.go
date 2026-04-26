@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"api-server/db"
@@ -17,6 +21,8 @@ type Handler struct {
 	telegramToken      string
 	telegramSignalChat string
 	telegramTradeChat  string
+	binanceBaseURL     string
+	httpClient         *http.Client
 }
 
 func New(store *db.Store) *Handler {
@@ -25,6 +31,8 @@ func New(store *db.Store) *Handler {
 		telegramToken:      os.Getenv("TELEGRAM_BOT_TOKEN"),
 		telegramSignalChat: os.Getenv("TELEGRAM_SIGNAL_CHAT_ID"),
 		telegramTradeChat:  os.Getenv("TELEGRAM_TRADE_CHAT_ID"),
+		binanceBaseURL:     strings.TrimRight(envOrDefault("BINANCE_BASE_URL", "https://testnet.binancefuture.com"), "/"),
+		httpClient:         &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -138,6 +146,113 @@ func (h *Handler) GetPnLCombined(c *gin.Context) {
 		summaries = []models.PnLSummary{}
 	}
 	c.JSON(http.StatusOK, summaries)
+}
+
+func (h *Handler) GetUnrealizedPnL(c *gin.Context) {
+	active := true
+	trades, err := h.store.GetTrades(c.Request.Context(), "", "", &active)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if trades == nil {
+		trades = []models.Trade{}
+	}
+
+	cfg, err := h.store.GetConfig(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	priceCache := map[string]float64{}
+	items := make([]models.UnrealizedPnLItem, 0, len(trades))
+	response := models.UnrealizedPnLResponse{
+		Items:     items,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	for _, trade := range trades {
+		currentPrice, ok := priceCache[trade.Coin]
+		if !ok {
+			currentPrice, err = h.fetchBinancePrice(trade.Coin)
+			if err != nil {
+				c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+				return
+			}
+			priceCache[trade.Coin] = currentPrice
+		}
+
+		lev := float64(trade.Leverage)
+		var grossPnL float64
+		if trade.Side == "LONG" {
+			grossPnL = (currentPrice - trade.EntryPrice) * trade.Quantity * lev
+		} else {
+			grossPnL = (trade.EntryPrice - currentPrice) * trade.Quantity * lev
+		}
+
+		openCommission := trade.Commission
+		closeCommission := trade.Quantity * currentPrice * cfg.CommissionRate * lev
+		totalCommission := openCommission + closeCommission
+		netPnL := grossPnL - totalCommission
+
+		item := models.UnrealizedPnLItem{
+			TradeID:         trade.ID,
+			Coin:            trade.Coin,
+			SignalType:      trade.SignalType,
+			Side:            trade.Side,
+			AccountType:     trade.AccountType,
+			Quantity:        trade.Quantity,
+			EntryPrice:      trade.EntryPrice,
+			CurrentPrice:    currentPrice,
+			Leverage:        trade.Leverage,
+			GrossPnL:        grossPnL,
+			OpenCommission:  openCommission,
+			CloseCommission: closeCommission,
+			TotalCommission: totalCommission,
+			NetPnL:          netPnL,
+		}
+
+		response.Items = append(response.Items, item)
+		response.TotalGrossPnL += grossPnL
+		response.TotalCommission += totalCommission
+		response.TotalNetPnL += netPnL
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) fetchBinancePrice(symbol string) (float64, error) {
+	endpoint := fmt.Sprintf("%s/fapi/v1/ticker/price?symbol=%s", h.binanceBaseURL, url.QueryEscape(symbol))
+	resp, err := h.httpClient.Get(endpoint)
+	if err != nil {
+		return 0, fmt.Errorf("price request failed for %s: %w", symbol, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("price request failed for %s: status %d", symbol, resp.StatusCode)
+	}
+
+	var body struct {
+		Price string `json:"price"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return 0, fmt.Errorf("price decode failed for %s: %w", symbol, err)
+	}
+
+	price, err := strconv.ParseFloat(body.Price, 64)
+	if err != nil {
+		return 0, fmt.Errorf("price parse failed for %s: %w", symbol, err)
+	}
+	return price, nil
+}
+
+func envOrDefault(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
 func (h *Handler) GetWebhooks(c *gin.Context) {

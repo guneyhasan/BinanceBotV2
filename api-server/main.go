@@ -70,6 +70,7 @@ func main() {
 		api.GET("/pnl/series", h.GetPnLSeries)
 		api.GET("/pnl/summary", h.GetPnLSummary)
 		api.GET("/pnl/combined", h.GetPnLCombined)
+		api.GET("/pnl/unrealized", h.GetUnrealizedPnL)
 		api.GET("/webhooks", h.GetWebhooks)
 		api.GET("/webhooks/:id", h.GetWebhookDetail)
 		api.GET("/system/health", h.GetSystemHealth)

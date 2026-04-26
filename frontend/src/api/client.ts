@@ -1,4 +1,4 @@
-import type { Config, Trade, PnLRecord, PnLSeries, PnLSummary, WebhookLog, SystemStats } from '../types';
+import type { Config, Trade, PnLRecord, PnLSeries, PnLSummary, UnrealizedPnLResponse, WebhookLog, SystemStats } from '../types';
 
 const BASE = '/api';
 
@@ -38,6 +38,7 @@ export const api = {
     return fetchJSON<PnLSummary[]>('/pnl/summary' + qs);
   },
   getPnLCombined: () => fetchJSON<PnLSummary[]>('/pnl/combined'),
+  getUnrealizedPnL: () => fetchJSON<UnrealizedPnLResponse>('/pnl/unrealized'),
 
   getWebhooks: (params?: Record<string, string>) => {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
