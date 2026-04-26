@@ -386,10 +386,10 @@ func (s *Store) GetSystemStats(ctx context.Context) (*models.SystemStats, error)
 
 	err := s.Pool.QueryRow(ctx, `SELECT
 		COUNT(*),
-		SUM(CASE WHEN status='COMPLETED' THEN 1 ELSE 0 END),
-		SUM(CASE WHEN status='RETRY_SUCCESS' THEN 1 ELSE 0 END),
-		SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END),
-		SUM(CASE WHEN status IN ('RECEIVED','PROCESSING') THEN 1 ELSE 0 END),
+		COALESCE(SUM(CASE WHEN status='COMPLETED' THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN status='RETRY_SUCCESS' THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN status IN ('RECEIVED','PROCESSING') THEN 1 ELSE 0 END), 0),
 		COALESCE(AVG(CASE WHEN retry_count > 0 THEN retry_count END), 0)
 		FROM webhook_logs`,
 	).Scan(&stats.TotalWebhooks, &stats.CompletedCount, &stats.RetrySuccessCount, &stats.FailedCount, &stats.ProcessingCount, &stats.AvgRetryCount)
