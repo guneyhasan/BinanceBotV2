@@ -35,7 +35,8 @@ docker compose up -d
 ```json
 {
   "signal": "AL1",
-  "ticker": "{{ticker}}"
+  "ticker": "{{ticker}}",
+  "secret": "optional_shared_secret"
 }
 ```
 

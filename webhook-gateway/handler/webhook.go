@@ -29,6 +29,7 @@ type Handler struct {
 type WebhookRequest struct {
 	Signal string `json:"signal"`
 	Ticker string `json:"ticker"`
+	Secret string `json:"secret"`
 }
 
 type QueueMessage struct {
@@ -47,22 +48,20 @@ func (h *Handler) Health(c *gin.Context) {
 }
 
 func (h *Handler) Webhook(c *gin.Context) {
-	if h.secret != "" {
-		auth := c.GetHeader("X-Webhook-Secret")
-		if auth != h.secret {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-	}
-
 	var req WebhookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json body"})
 		return
 	}
 
+	if h.secret != "" && req.Secret != h.secret {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	req.Signal = strings.ToUpper(strings.TrimSpace(req.Signal))
 	req.Ticker = strings.ToUpper(strings.TrimSpace(req.Ticker))
+	req.Secret = ""
 
 	if !validSignals[req.Signal] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid signal, must be AL1/AL2/AL3/SAT1/SAT2/SAT3"})
