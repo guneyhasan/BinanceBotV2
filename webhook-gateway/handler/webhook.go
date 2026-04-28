@@ -60,7 +60,7 @@ func (h *Handler) Webhook(c *gin.Context) {
 	}
 
 	req.Signal = strings.ToUpper(strings.TrimSpace(req.Signal))
-	req.Ticker = strings.ToUpper(strings.TrimSpace(req.Ticker))
+	req.Ticker = normalizeTicker(req.Ticker)
 	req.Secret = ""
 
 	if !validSignals[req.Signal] {
@@ -112,4 +112,8 @@ func (h *Handler) Webhook(c *gin.Context) {
 		"signal":     req.Signal,
 		"ticker":     req.Ticker,
 	})
+}
+
+func normalizeTicker(ticker string) string {
+	return strings.TrimSuffix(strings.ToUpper(strings.TrimSpace(ticker)), ".P")
 }
