@@ -56,7 +56,7 @@ func GetSignalMapping(signal string) SignalMapping {
 		}
 	case "AL2":
 		return SignalMapping{
-			OppositeSignals: []string{"SAT2", "SAT1"},
+			OppositeSignals: []string{"SAT3", "SAT2", "SAT1"},
 			Side:            "LONG",
 			AccountType:     "AL_ACCOUNT",
 			OppositeAccount: "SAT_ACCOUNT",
@@ -64,7 +64,7 @@ func GetSignalMapping(signal string) SignalMapping {
 		}
 	case "AL3":
 		return SignalMapping{
-			OppositeSignals: []string{"SAT1"},
+			OppositeSignals: []string{"SAT3", "SAT2", "SAT1"},
 			Side:            "LONG",
 			AccountType:     "AL_ACCOUNT",
 			OppositeAccount: "SAT_ACCOUNT",
@@ -80,7 +80,7 @@ func GetSignalMapping(signal string) SignalMapping {
 		}
 	case "SAT2":
 		return SignalMapping{
-			OppositeSignals: []string{"AL2", "AL1"},
+			OppositeSignals: []string{"AL3", "AL2", "AL1"},
 			Side:            "SHORT",
 			AccountType:     "SAT_ACCOUNT",
 			OppositeAccount: "AL_ACCOUNT",
@@ -88,7 +88,7 @@ func GetSignalMapping(signal string) SignalMapping {
 		}
 	case "SAT3":
 		return SignalMapping{
-			OppositeSignals: []string{"AL1"},
+			OppositeSignals: []string{"AL3", "AL2", "AL1"},
 			Side:            "SHORT",
 			AccountType:     "SAT_ACCOUNT",
 			OppositeAccount: "AL_ACCOUNT",
