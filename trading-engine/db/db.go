@@ -32,25 +32,22 @@ func (s *Store) GetConfig(ctx context.Context) (*models.Config, error) {
 }
 
 func (s *Store) FindActiveOppositeTrade(ctx context.Context, coin string, signalTypes []string) (*models.Trade, error) {
-	for _, st := range signalTypes {
-		var t models.Trade
-		var orderID *int64
-		err := s.pool.QueryRow(ctx,
-			`SELECT id, coin, signal_type, side, account_type, quantity, entry_price, leverage, commission, is_active, binance_order_id, created_at
-			 FROM trades WHERE coin=$1 AND signal_type=$2 AND is_active=true
-			 ORDER BY created_at DESC LIMIT 1`,
-			coin, st,
-		).Scan(&t.ID, &t.Coin, &t.SignalType, &t.Side, &t.AccountType, &t.Quantity, &t.EntryPrice, &t.Leverage, &t.Commission, &t.IsActive, &orderID, &t.CreatedAt)
-		if err == pgx.ErrNoRows {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("find active trade: %w", err)
-		}
-		t.BinanceOrderID = orderID
-		return &t, nil
+	var t models.Trade
+	var orderID *int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, coin, signal_type, side, account_type, quantity, entry_price, leverage, commission, is_active, binance_order_id, created_at
+		 FROM trades WHERE coin=$1 AND signal_type = ANY($2) AND is_active=true
+		 ORDER BY created_at DESC LIMIT 1`,
+		coin, signalTypes,
+	).Scan(&t.ID, &t.Coin, &t.SignalType, &t.Side, &t.AccountType, &t.Quantity, &t.EntryPrice, &t.Leverage, &t.Commission, &t.IsActive, &orderID, &t.CreatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
 	}
-	return nil, nil
+	if err != nil {
+		return nil, fmt.Errorf("find active trade: %w", err)
+	}
+	t.BinanceOrderID = orderID
+	return &t, nil
 }
 
 func (s *Store) DeactivateTrade(ctx context.Context, tradeID int) error {

@@ -49,3 +49,20 @@ Frontend uzerinden Ayarlar sayfasindan degistirilebilir:
 - Kaldırac (1-125x)
 - Margin modu (ISOLATED / CROSSED)
 - Komisyon orani (varsayilan %0.04)
+
+cd ~/BinanceBotV2
+
+docker compose exec postgres psql -U tradingbot -d tradingbot -c "
+TRUNCATE TABLE
+  execution_logs,
+  pnl_records,
+  webhook_logs,
+  trades
+RESTART IDENTITY CASCADE;
+"
+
+
+
+ curl -X POST http://78.135.85.65/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"signal":"AL2","ticker":"BTCUSDT","secret": "optional_shared_secret"}
